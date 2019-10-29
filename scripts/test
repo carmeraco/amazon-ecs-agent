@@ -13,8 +13,13 @@
 # permissions and limitations under the License.
 
 # Start docker for our tests..
-DOCKER_DAEMON_ARGS="--insecure-registry 127.0.0.1:51671 --insecure-registry 127.0.0.1:51670" wrapdocker &> /dev/null
+
+DOCKER_DAEMON_ARGS="--insecure-registry 127.0.0.1:51671 --insecure-registry 127.0.0.1:51670" wrapdocker &> /dev/null &
 
 sleep 2
 
-make test
+if [ $# -eq 0 ] ; then
+  make test
+else
+  exec "$@"
+fi

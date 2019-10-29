@@ -305,4 +305,8 @@ type Config struct {
 	// Defaults to false.
 	// see https://docs.aws.amazon.com/AmazonECS/latest/developerguide/container-instance-draining.html
 	SpotInstanceDrainingEnabled bool
+
+	// FluentdAddress is the default address to which to send Batch logs (overriding the setting for awslogs), if
+	// the environment variables LOG_DRIVER=fluentd and COMPONENT=... are set on the task definition.
+	FluentdAddress string
 }
