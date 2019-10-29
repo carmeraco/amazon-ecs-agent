@@ -13,4 +13,4 @@ services:
       - ../../:/go/src/github.com/aws/amazon-ecs-agent
   test-asil:
     extends: test
-    command: go test -tags unit -run TestEnvironmentConfig ./agent/config/ -v -count 1
+    command: go test -tags unit -run '^Test(Papyrus|EnvironmentConfig)' ./agent/engine/ ./agent/config/ -v -count 1

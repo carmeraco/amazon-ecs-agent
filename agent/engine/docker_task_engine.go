@@ -80,6 +80,12 @@ const (
 	// logDriverTypeFirelens is the log driver type for containers that want to use the firelens container to send logs.
 	logDriverTypeFirelens   = "awsfirelens"
 	logDriverTypeFluentd    = "fluentd"
+	logDriverTypeAWS        = "awslogs"
+	logDriverAWSLogGroup    = "awslogs-group"
+	logDriverBatchLogPath   = "/aws/batch/job"
+	logDriverEnvKey         = "LOG_DRIVER"
+	componentEnvKey         = "COMPONENT"
+	fluentdAddressEnvKey    = "FLUENTD_ADDRESS"
 	logDriverTag            = "tag"
 	logDriverFluentdAddress = "fluentd-address"
 	dataLogDriverPath       = "/data/firelens/"
@@ -921,49 +927,85 @@ func (engine *DockerTaskEngine) createContainer(task *apitask.Task, container *a
 		}
 	}
 
-	firelensConfig := container.GetFirelensConfig()
-	if firelensConfig != nil {
-		err := task.AddFirelensContainerBindMounts(firelensConfig, hostConfig, engine.cfg)
-		if err != nil {
-			return dockerapi.DockerContainerMetadata{Error: apierrors.NamedError(err)}
-		}
+	if hostConfig.LogConfig.Type == logDriverTypeAWS {
+		logConfig := hostConfig.LogConfig.Config
 
-		cerr := task.PopulateSecretLogOptionsToFirelensContainer(container)
-		if cerr != nil {
-			return dockerapi.DockerContainerMetadata{Error: apierrors.NamedError(cerr)}
-		}
+		if logPath, ok := logConfig[logDriverAWSLogGroup]; ok && logPath == logDriverBatchLogPath {
+			// Check for Papyrus task environment variables
+			environment := container.Environment
 
-		if firelensConfig.Type == firelens.FirelensConfigTypeFluentd {
-			// For fluentd router, needs to specify FLUENT_UID to root in order for the fluentd process to access
-			// the socket created by Docker.
-			container.MergeEnvironmentVariables(map[string]string{
-				"FLUENT_UID": "0",
-			})
-		}
-	}
-
-	// If the container is using a special log driver type "awsfirelens", it means the container wants to use
-	// the firelens container to send logs. In this case, override the log driver type to be fluentd
-	// and specify appropriate tag and fluentd-address, so that the logs are sent to and routed by the firelens container.
-	// Update the environment variables FLUENT_HOST and FLUENT_PORT depending on the supported network modes - bridge
-	// and awsvpc. For reference - https://docs.docker.com/config/containers/logging/fluentd/.
-	if hostConfig.LogConfig.Type == logDriverTypeFirelens {
-		hostConfig.LogConfig = getFirelensLogConfig(task, container, hostConfig, engine.cfg)
-		if task.IsNetworkModeAWSVPC() {
-			container.MergeEnvironmentVariables(map[string]string{
-				fluentNetworkHost: FluentAWSVPCHostValue,
-				fluentNetworkPort: FluentNetworkPortValue,
-			})
-		} else if container.GetNetworkModeFromHostConfig() == "" || container.GetNetworkModeFromHostConfig() == apitask.BridgeNetworkMode {
-			ipAddress, ok := getContainerHostIP(task.GetFirelensContainer().GetNetworkSettings())
-			if !ok {
-				err := apierrors.DockerClientConfigError{Msg: "unable to get BridgeIP for task in bridge  mode"}
-				return dockerapi.DockerContainerMetadata{Error: apierrors.NamedError(&err)}
+			if logDriver, ok := environment[logDriverEnvKey]; ok && logDriver == logDriverTypeFluentd {
+				if component, ok := environment[componentEnvKey]; ok {
+					// LOG_DRIVER and COMPONENT are set.
+					// Check for either FLUENTD_ADDRESS or populated ECS_DEFAULT_FLUENTD_ADDRESS.
+					if fluentdAddress, ok := environment[fluentdAddressEnvKey]; ok {
+						seelog.Debugf("Task engine [%s]: For container %s, overriding log driver to send logs to Fluentd at %s.",
+							task.Arn, container.Name, fluentdAddress)
+						hostConfig.LogConfig.Type = logDriverTypeFluentd
+						hostConfig.LogConfig.Config = map[string]string{
+					    logDriverTag: "docker.batch." + component,
+					    logDriverFluentdAddress: fluentdAddress,
+						}
+					} else if defaultFluentdAddress := engine.cfg.FluentdAddress; defaultFluentdAddress != "" {
+							seelog.Debugf("Task engine [%s]: For container %s, overriding log driver to send logs to Fluentd at %s.",
+								task.Arn, container.Name, defaultFluentdAddress)
+							hostConfig.LogConfig.Type = logDriverTypeFluentd
+							hostConfig.LogConfig.Config = map[string]string{
+						    logDriverTag: "docker.batch." + component,
+						    logDriverFluentdAddress: defaultFluentdAddress,
+							}
+					} else {
+						seelog.Warnf("Task engine [%s]: For container %s, LOG_DRIVER and COMPONENT environment variables are set, " +
+							"but no address was found in FLUENTD_ADDRESS or ECS_DEFAULT_FLUENTD_ADDRESS. Not sending logs to Fluentd.", task.Arn, container.Name)
+					}
+				}
 			}
-			container.MergeEnvironmentVariables(map[string]string{
-				fluentNetworkHost: ipAddress,
-				fluentNetworkPort: FluentNetworkPortValue,
-			})
+		}
+	} else {
+		firelensConfig := container.GetFirelensConfig()
+		if firelensConfig != nil {
+			err := task.AddFirelensContainerBindMounts(firelensConfig, hostConfig, engine.cfg)
+			if err != nil {
+				return dockerapi.DockerContainerMetadata{Error: apierrors.NamedError(err)}
+			}
+
+			cerr := task.PopulateSecretLogOptionsToFirelensContainer(container)
+			if cerr != nil {
+				return dockerapi.DockerContainerMetadata{Error: apierrors.NamedError(cerr)}
+			}
+
+			if firelensConfig.Type == firelens.FirelensConfigTypeFluentd {
+				// For fluentd router, needs to specify FLUENT_UID to root in order for the fluentd process to access
+				// the socket created by Docker.
+				container.MergeEnvironmentVariables(map[string]string{
+					"FLUENT_UID": "0",
+				})
+			}
+		}
+
+		// If the container is using a special log driver type "awsfirelens", it means the container wants to use
+		// the firelens container to send logs. In this case, override the log driver type to be fluentd
+		// and specify appropriate tag and fluentd-address, so that the logs are sent to and routed by the firelens container.
+		// Update the environment variables FLUENT_HOST and FLUENT_PORT depending on the supported network modes - bridge
+		// and awsvpc. For reference - https://docs.docker.com/config/containers/logging/fluentd/.
+		if hostConfig.LogConfig.Type == logDriverTypeFirelens {
+			hostConfig.LogConfig = getFirelensLogConfig(task, container, hostConfig, engine.cfg)
+			if task.IsNetworkModeAWSVPC() {
+				container.MergeEnvironmentVariables(map[string]string{
+					fluentNetworkHost: FluentAWSVPCHostValue,
+					fluentNetworkPort: FluentNetworkPortValue,
+				})
+			} else if container.GetNetworkModeFromHostConfig() == "" || container.GetNetworkModeFromHostConfig() == apitask.BridgeNetworkMode {
+				ipAddress, ok := getContainerHostIP(task.GetFirelensContainer().GetNetworkSettings())
+				if !ok {
+					err := apierrors.DockerClientConfigError{Msg: "unable to get BridgeIP for task in bridge  mode"}
+					return dockerapi.DockerContainerMetadata{Error: apierrors.NamedError(&err)}
+				}
+				container.MergeEnvironmentVariables(map[string]string{
+					fluentNetworkHost: ipAddress,
+					fluentNetworkPort: FluentNetworkPortValue,
+				})
+			}
 		}
 	}
 

@@ -22,6 +22,7 @@ import (
 	"fmt"
 	"net"
 	"path/filepath"
+	"reflect"
 	"strconv"
 	"strings"
 	"sync"
@@ -2884,6 +2885,358 @@ func TestCreateFirelensContainerSetFluentdUID(t *testing.T) {
 			timeout time.Duration) {
 			assert.Contains(t, config.Env, "FLUENT_UID=0")
 		})
+	ret := taskEngine.(*DockerTaskEngine).createContainer(testTask, testTask.Containers[0])
+	assert.NoError(t, ret.Error)
+}
+
+func TestPapyrusNoLogDriverChangeNoEnv(t *testing.T) {
+	// Task input ---
+	logDriverAWSConfig := map[string]string{
+    logDriverAWSLogGroup: logDriverBatchLogPath,
+    "awslogs-region": "us-east-1",
+    "awslogs-stream-prefix": "Helios-efa0eccc5425170",
+	}
+
+	rawHostConfigInput := dockercontainer.HostConfig{
+		LogConfig: dockercontainer.LogConfig{
+			Type: logDriverTypeAWS,
+			Config: logDriverAWSConfig,
+		},
+	}
+
+	rawHostConfig, err := json.Marshal(&rawHostConfigInput)
+	require.NoError(t, err)
+
+	testTask := &apitask.Task{
+		Arn: "test-task-arn",
+		Containers: []*apicontainer.Container{
+			{
+				Name: "test-batch-container",
+				DockerConfig: apicontainer.DockerConfig{
+					HostConfig: func() *string {
+            s := string(rawHostConfig)
+            return &s
+          }(),
+				},
+				Environment: map[string]string{
+					"TEST": "value",
+				},
+			},
+		},
+	}
+
+	// Beginning of test ---
+	ctx, cancel := context.WithCancel(context.TODO())
+	defer cancel()
+	ctrl, client, _, taskEngine, _, _, _ := mocks(t, ctx, &defaultConfig)
+	defer ctrl.Finish()
+
+	client.EXPECT().APIVersion().Return(defaultDockerClientAPIVersion, nil).AnyTimes()
+	client.EXPECT().CreateContainer(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Do(
+		func(ctx context.Context,
+			config *dockercontainer.Config,
+			hostConfig *dockercontainer.HostConfig,
+			name string,
+			timeout time.Duration) {
+				assert.Contains(t, config.Env, "TEST=value")
+				assert.Equal(t, logDriverTypeAWS, hostConfig.LogConfig.Type,
+					"Log driver type should not change unless Papyrus environment variables are set.")
+				assert.True(t, reflect.DeepEqual(logDriverAWSConfig, hostConfig.LogConfig.Config),
+					"Log config should not change unless Papyrus environment variables are set.")
+		})
+
+	ret := taskEngine.(*DockerTaskEngine).createContainer(testTask, testTask.Containers[0])
+	assert.NoError(t, ret.Error)
+}
+
+func TestPapyrusLogDriverChangeDefaultFluentdNoOverride(t *testing.T) {
+	defaultFluentdAddress := "fluentd.papyrus.us-east-1.local"
+
+	// Agent settings --
+	agentConfig := defaultConfig
+	agentConfig.FluentdAddress = defaultFluentdAddress
+
+	// Task input ---
+	logDriverAWSConfig := map[string]string{
+    logDriverAWSLogGroup: logDriverBatchLogPath,
+    "awslogs-region": "us-east-1",
+    "awslogs-stream-prefix": "Helios-efa0eccc5425170",
+	}
+
+	rawHostConfigInput := dockercontainer.HostConfig{
+		LogConfig: dockercontainer.LogConfig{
+			Type: logDriverTypeAWS,
+			Config: logDriverAWSConfig,
+		},
+	}
+
+	rawHostConfig, err := json.Marshal(&rawHostConfigInput)
+	require.NoError(t, err)
+
+	component := "helios"
+
+	testTask := &apitask.Task{
+		Arn: "test-task-arn",
+		Containers: []*apicontainer.Container{
+			{
+				Name: "test-batch-container",
+				DockerConfig: apicontainer.DockerConfig{
+					HostConfig: func() *string {
+            s := string(rawHostConfig)
+            return &s
+          }(),
+				},
+				Environment: map[string]string{
+					logDriverEnvKey: logDriverTypeFluentd,
+					componentEnvKey: component,
+				},
+			},
+		},
+	}
+
+	// Expected log config ---
+	logDriverFluentdConfig := map[string]string{
+    logDriverTag: "docker.batch." + component,
+    logDriverFluentdAddress: defaultFluentdAddress,
+	}
+
+	// Beginning of test ---
+	ctx, cancel := context.WithCancel(context.TODO())
+	defer cancel()
+	ctrl, client, _, taskEngine, _, _, _ := mocks(t, ctx, &agentConfig)
+	defer ctrl.Finish()
+
+	client.EXPECT().APIVersion().Return(defaultDockerClientAPIVersion, nil).AnyTimes()
+	client.EXPECT().CreateContainer(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Do(
+		func(ctx context.Context,
+			config *dockercontainer.Config,
+			hostConfig *dockercontainer.HostConfig,
+			name string,
+			timeout time.Duration) {
+				assert.Contains(t, config.Env, "LOG_DRIVER=fluentd")
+				assert.Contains(t, config.Env, "COMPONENT=helios")
+				assert.Equal(t, logDriverTypeFluentd, hostConfig.LogConfig.Type,
+					"Log driver type switch to fluentd since Papyrus environment variables are set.")
+				assert.True(t, reflect.DeepEqual(logDriverFluentdConfig, hostConfig.LogConfig.Config),
+					"Log config should change to Fluentd default values since Papyrus environment variables are set (but an override for the Fluentd address is not set).")
+		})
+
+	ret := taskEngine.(*DockerTaskEngine).createContainer(testTask, testTask.Containers[0])
+	assert.NoError(t, ret.Error)
+}
+
+func TestPapyrusNoLogDriverChangeNoDefaultAddressNoOverride(t *testing.T) {
+	// Task input ---
+	logDriverAWSConfig := map[string]string{
+    logDriverAWSLogGroup: logDriverBatchLogPath,
+    "awslogs-region": "us-east-1",
+    "awslogs-stream-prefix": "Helios-efa0eccc5425170",
+	}
+
+	rawHostConfigInput := dockercontainer.HostConfig{
+		LogConfig: dockercontainer.LogConfig{
+			Type: logDriverTypeAWS,
+			Config: logDriverAWSConfig,
+		},
+	}
+
+	rawHostConfig, err := json.Marshal(&rawHostConfigInput)
+	require.NoError(t, err)
+
+	component := "helios"
+
+	testTask := &apitask.Task{
+		Arn: "test-task-arn",
+		Containers: []*apicontainer.Container{
+			{
+				Name: "test-batch-container",
+				DockerConfig: apicontainer.DockerConfig{
+					HostConfig: func() *string {
+            s := string(rawHostConfig)
+            return &s
+          }(),
+				},
+				Environment: map[string]string{
+					logDriverEnvKey: logDriverTypeFluentd,
+					componentEnvKey: component,
+				},
+			},
+		},
+	}
+
+	// Beginning of test ---
+	ctx, cancel := context.WithCancel(context.TODO())
+	defer cancel()
+	ctrl, client, _, taskEngine, _, _, _ := mocks(t, ctx, &defaultConfig)
+	defer ctrl.Finish()
+
+	client.EXPECT().APIVersion().Return(defaultDockerClientAPIVersion, nil).AnyTimes()
+	client.EXPECT().CreateContainer(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Do(
+		func(ctx context.Context,
+			config *dockercontainer.Config,
+			hostConfig *dockercontainer.HostConfig,
+			name string,
+			timeout time.Duration) {
+				assert.Contains(t, config.Env, "LOG_DRIVER=fluentd")
+				assert.Contains(t, config.Env, "COMPONENT=helios")
+
+				assert.Equal(t, logDriverTypeAWS, hostConfig.LogConfig.Type,
+					"Log driver type should not change since no Fluentd address available via defaults or override variable.")
+				assert.True(t, reflect.DeepEqual(logDriverAWSConfig, hostConfig.LogConfig.Config),
+					"Log config should not change since no Fluentd address available via defaults or override variable.")
+		})
+
+	ret := taskEngine.(*DockerTaskEngine).createContainer(testTask, testTask.Containers[0])
+	assert.NoError(t, ret.Error)
+}
+
+func TestPapyrusLogDriverChangeNoDefaultAddressHasOverride(t *testing.T) {
+	taskFluentdAddress := "fluentd.papyrus.us-east-1.local"
+
+	// Task input ---
+	logDriverAWSConfig := map[string]string{
+    logDriverAWSLogGroup: logDriverBatchLogPath,
+    "awslogs-region": "us-east-1",
+    "awslogs-stream-prefix": "Helios-efa0eccc5425170",
+	}
+
+	rawHostConfigInput := dockercontainer.HostConfig{
+		LogConfig: dockercontainer.LogConfig{
+			Type: logDriverTypeAWS,
+			Config: logDriverAWSConfig,
+		},
+	}
+
+	rawHostConfig, err := json.Marshal(&rawHostConfigInput)
+	require.NoError(t, err)
+
+	component := "helios"
+
+	testTask := &apitask.Task{
+		Arn: "test-task-arn",
+		Containers: []*apicontainer.Container{
+			{
+				Name: "test-batch-container",
+				DockerConfig: apicontainer.DockerConfig{
+					HostConfig: func() *string {
+            s := string(rawHostConfig)
+            return &s
+          }(),
+				},
+				Environment: map[string]string{
+					logDriverEnvKey: logDriverTypeFluentd,
+					componentEnvKey: component,
+					fluentdAddressEnvKey: taskFluentdAddress,
+				},
+			},
+		},
+	}
+
+	// Expected log config ---
+	logDriverFluentdConfig := map[string]string{
+    logDriverTag: "docker.batch." + component,
+    logDriverFluentdAddress: taskFluentdAddress,
+	}
+
+	// Beginning of test ---
+	ctx, cancel := context.WithCancel(context.TODO())
+	defer cancel()
+	ctrl, client, _, taskEngine, _, _, _ := mocks(t, ctx, &defaultConfig)
+	defer ctrl.Finish()
+
+	client.EXPECT().APIVersion().Return(defaultDockerClientAPIVersion, nil).AnyTimes()
+	client.EXPECT().CreateContainer(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Do(
+		func(ctx context.Context,
+			config *dockercontainer.Config,
+			hostConfig *dockercontainer.HostConfig,
+			name string,
+			timeout time.Duration) {
+				assert.Contains(t, config.Env, "LOG_DRIVER=fluentd")
+				assert.Contains(t, config.Env, "COMPONENT=helios")
+				assert.Equal(t, logDriverTypeFluentd, hostConfig.LogConfig.Type,
+					"Log driver type switch to fluentd since Papyrus environment variables and Fluentd address are set.")
+				assert.True(t, reflect.DeepEqual(logDriverFluentdConfig, hostConfig.LogConfig.Config),
+					"Log config should change to Fluentd task values since Papyrus environment variables and Fluentd address are set (but an override for the Fluentd address is not set).")
+		})
+
+	ret := taskEngine.(*DockerTaskEngine).createContainer(testTask, testTask.Containers[0])
+	assert.NoError(t, ret.Error)
+}
+
+func TestPapyrusLogDriverChangeHasDefaultAddressHasOverride(t *testing.T) {
+	defaultFluentdAddress := "fluentd.papyrus.us-east-1.local"
+	taskFluentdAddress := "fluentd.my.override"
+
+	// Agent settings --
+	agentConfig := defaultConfig
+	agentConfig.FluentdAddress = defaultFluentdAddress
+
+	// Task input ---
+	logDriverAWSConfig := map[string]string{
+    logDriverAWSLogGroup: logDriverBatchLogPath,
+    "awslogs-region": "us-east-1",
+    "awslogs-stream-prefix": "Helios-efa0eccc5425170",
+	}
+
+	rawHostConfigInput := dockercontainer.HostConfig{
+		LogConfig: dockercontainer.LogConfig{
+			Type: logDriverTypeAWS,
+			Config: logDriverAWSConfig,
+		},
+	}
+
+	rawHostConfig, err := json.Marshal(&rawHostConfigInput)
+	require.NoError(t, err)
+
+	component := "helios"
+
+	testTask := &apitask.Task{
+		Arn: "test-task-arn",
+		Containers: []*apicontainer.Container{
+			{
+				Name: "test-batch-container",
+				DockerConfig: apicontainer.DockerConfig{
+					HostConfig: func() *string {
+            s := string(rawHostConfig)
+            return &s
+          }(),
+				},
+				Environment: map[string]string{
+					logDriverEnvKey: logDriverTypeFluentd,
+					componentEnvKey: component,
+					fluentdAddressEnvKey: taskFluentdAddress,
+				},
+			},
+		},
+	}
+
+	// Expected log config ---
+	logDriverFluentdConfig := map[string]string{
+    logDriverTag: "docker.batch." + component,
+    logDriverFluentdAddress: taskFluentdAddress,
+	}
+
+	// Beginning of test ---
+	ctx, cancel := context.WithCancel(context.TODO())
+	defer cancel()
+	ctrl, client, _, taskEngine, _, _, _ := mocks(t, ctx, &agentConfig)
+	defer ctrl.Finish()
+
+	client.EXPECT().APIVersion().Return(defaultDockerClientAPIVersion, nil).AnyTimes()
+	client.EXPECT().CreateContainer(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Do(
+		func(ctx context.Context,
+			config *dockercontainer.Config,
+			hostConfig *dockercontainer.HostConfig,
+			name string,
+			timeout time.Duration) {
+				assert.Contains(t, config.Env, "LOG_DRIVER=fluentd")
+				assert.Contains(t, config.Env, "COMPONENT=helios")
+				assert.Equal(t, logDriverTypeFluentd, hostConfig.LogConfig.Type,
+					"Log driver type switch to fluentd since Papyrus environment variables are set.")
+				assert.True(t, reflect.DeepEqual(logDriverFluentdConfig, hostConfig.LogConfig.Config),
+					"Log config should change to Fluentd values with Fluentd address override since Papyrus environment variables are set (but an override for the Fluentd address is not set).")
+		})
+
 	ret := taskEngine.(*DockerTaskEngine).createContainer(testTask, testTask.Containers[0])
 	assert.NoError(t, ret.Error)
 }
