@@ -13,6 +13,8 @@
 
 USERID=$(shell id -u)
 
+VERSION ?= make
+
 .PHONY: all gobuild static xplatform-build docker release certs test clean netkitten test-registry namespace-tests run-functional-tests benchmark-test gogenerate run-integ-tests pause-container get-cni-sources cni-plugins test-artifacts
 BUILD_PLATFORM:=$(shell uname -m)
 
@@ -68,8 +70,8 @@ build-in-docker: .builder-image-stamp .out-stamp
 # or not
 docker: certs build-in-docker pause-container-release cni-plugins .out-stamp
 	@cd scripts && ./create-amazon-ecs-scratch
-	@docker build -f scripts/dockerfiles/Dockerfile.release -t "amazon/amazon-ecs-agent:make" .
-	@echo "Built Docker image \"amazon/amazon-ecs-agent:make\""
+	@docker build -f scripts/dockerfiles/Dockerfile.release -t "amazon/amazon-ecs-agent:${VERSION}" .
+	@echo "Built Docker image \"amazon/amazon-ecs-agent:${VERSION}\""
 
 # 'docker-release' builds the agent from a clean snapshot of the git repo in
 # 'RELEASE' mode

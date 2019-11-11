@@ -927,7 +927,13 @@ func (engine *DockerTaskEngine) createContainer(task *apitask.Task, container *a
 		}
 	}
 
+	// HACK: Send logs for AWS Batch jobs to Papyrus. The logging driver is not configurable via the JobDefinition.
+	// Instead, for AWS Batch jobs we will detect via the ECS agent whether the environment variables
+	// LOG_DRIVER and COMPONENT are set,  and if so send logs to either ECS_DEFAULT_FLUENTD_ADDRESS
+	// (set on the agent) or the override FLUENTD_ADDRESS (set on the task).
 	if hostConfig.LogConfig.Type == logDriverTypeAWS {
+		seelog.Debugf("Task engine [%s]: Detected task family %s as AWS Batch task", task.Arn, task.Family)
+
 		logConfig := hostConfig.LogConfig.Config
 
 		if logPath, ok := logConfig[logDriverAWSLogGroup]; ok && logPath == logDriverBatchLogPath {
@@ -939,24 +945,24 @@ func (engine *DockerTaskEngine) createContainer(task *apitask.Task, container *a
 					// LOG_DRIVER and COMPONENT are set.
 					// Check for either FLUENTD_ADDRESS or populated ECS_DEFAULT_FLUENTD_ADDRESS.
 					if fluentdAddress, ok := environment[fluentdAddressEnvKey]; ok {
-						seelog.Debugf("Task engine [%s]: For container %s, overriding log driver to send logs to Fluentd at %s.",
-							task.Arn, container.Name, fluentdAddress)
+						seelog.Debugf("Task engine [%s]: For task family %s, overriding log driver to send logs to Fluentd at %s.",
+							task.Arn, task.Family, fluentdAddress)
 						hostConfig.LogConfig.Type = logDriverTypeFluentd
 						hostConfig.LogConfig.Config = map[string]string{
 					    logDriverTag: "docker.batch." + component,
 					    logDriverFluentdAddress: fluentdAddress,
 						}
 					} else if defaultFluentdAddress := engine.cfg.FluentdAddress; defaultFluentdAddress != "" {
-							seelog.Debugf("Task engine [%s]: For container %s, overriding log driver to send logs to Fluentd at %s.",
-								task.Arn, container.Name, defaultFluentdAddress)
+							seelog.Debugf("Task engine [%s]: For task family %s, overriding log driver to send logs to Fluentd at %s.",
+								task.Arn, task.Family, defaultFluentdAddress)
 							hostConfig.LogConfig.Type = logDriverTypeFluentd
 							hostConfig.LogConfig.Config = map[string]string{
 						    logDriverTag: "docker.batch." + component,
 						    logDriverFluentdAddress: defaultFluentdAddress,
 							}
 					} else {
-						seelog.Warnf("Task engine [%s]: For container %s, LOG_DRIVER and COMPONENT environment variables are set, " +
-							"but no address was found in FLUENTD_ADDRESS or ECS_DEFAULT_FLUENTD_ADDRESS. Not sending logs to Fluentd.", task.Arn, container.Name)
+						seelog.Warnf("Task engine [%s]: For task family %s, LOG_DRIVER and COMPONENT environment variables are set, " +
+							"but no address was found in FLUENTD_ADDRESS or ECS_DEFAULT_FLUENTD_ADDRESS. Not sending logs to Fluentd.", task.Arn, task.Family)
 					}
 				}
 			}

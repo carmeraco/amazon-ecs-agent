@@ -11,6 +11,8 @@ services:
     privileged: true
     volumes:
       - ../../:/go/src/github.com/aws/amazon-ecs-agent
-  test-asil:
+    environment:
+      ECS_LOGLEVEL: debug
+  test-papyrus:
     extends: test
     command: go test -tags unit -run '^Test(Papyrus|EnvironmentConfig)' ./agent/engine/ ./agent/config/ -v -count 1
