@@ -942,6 +942,15 @@ func (engine *DockerTaskEngine) createContainer(task *apitask.Task, container *a
 
 			if logDriver, ok := environment[logDriverEnvKey]; ok && logDriver == logDriverTypeFluentd {
 				if component, ok := environment[componentEnvKey]; ok {
+					// Parse the taskArn for the resource-id, which is used to compose the log stream for CloudWatch.
+					// Apparently Task.GetID() is not completely functional according to note on line 990 of task.go
+					// Copying that functionality here.
+					fields := strings.Split(task.Arn, "/")
+					taskID := fields[len(fields)-1]
+					// Metadata for Fluentd. These will be parsed as record fields for Papyrus, and also used to 
+					// reconstruct the CloudWatch log stream name.
+					tag := fmt.Sprintf("docker.batch.%s.%s.%s.%s.%s", component, task.Family, task.Version, container.Name, taskID)
+
 					// LOG_DRIVER and COMPONENT are set.
 					// Check for either FLUENTD_ADDRESS or populated ECS_DEFAULT_FLUENTD_ADDRESS.
 					if fluentdAddress, ok := environment[fluentdAddressEnvKey]; ok {
@@ -949,7 +958,7 @@ func (engine *DockerTaskEngine) createContainer(task *apitask.Task, container *a
 							task.Arn, task.Family, fluentdAddress)
 						hostConfig.LogConfig.Type = logDriverTypeFluentd
 						hostConfig.LogConfig.Config = map[string]string{
-					    logDriverTag: "docker.batch." + component,
+					    logDriverTag: tag,
 					    logDriverFluentdAddress: fluentdAddress,
 						}
 					} else if defaultFluentdAddress := engine.cfg.FluentdAddress; defaultFluentdAddress != "" {
@@ -957,7 +966,7 @@ func (engine *DockerTaskEngine) createContainer(task *apitask.Task, container *a
 								task.Arn, task.Family, defaultFluentdAddress)
 							hostConfig.LogConfig.Type = logDriverTypeFluentd
 							hostConfig.LogConfig.Config = map[string]string{
-						    logDriverTag: "docker.batch." + component,
+						    logDriverTag: tag,
 						    logDriverFluentdAddress: defaultFluentdAddress,
 							}
 					} else {

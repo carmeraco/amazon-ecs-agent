@@ -2942,7 +2942,9 @@ func TestPapyrusNoLogDriverChangeNoEnv(t *testing.T) {
 				assert.Equal(t, logDriverTypeAWS, hostConfig.LogConfig.Type,
 					"Log driver type should not change unless Papyrus environment variables are set.")
 				assert.True(t, reflect.DeepEqual(logDriverAWSConfig, hostConfig.LogConfig.Config),
-					"Log config should not change unless Papyrus environment variables are set.")
+					"Log config should not change unless Papyrus environment variables are set." + 
+					fmt.Sprintf("Expected: %v, Actual: %v", logDriverAWSConfig, hostConfig.LogConfig.Config),
+				)
 		})
 
 	ret := taskEngine.(*DockerTaskEngine).createContainer(testTask, testTask.Containers[0])
@@ -2974,9 +2976,16 @@ func TestPapyrusLogDriverChangeDefaultFluentdNoOverride(t *testing.T) {
 	require.NoError(t, err)
 
 	component := "helios"
+	containerName := "test-batch-container"
+	taskFamily := "helios-jd-123"
+	taskFamilyVersion := "2"
+	taskID := "09393kdkasdf93kaf"
+	taskArn := "arn:aws:ecs:us-east-1:3838747299388:task/TestCE_Batch_47aeea0c-adf7-3a5b-81c8-20399asdfk/" + taskID
 
 	testTask := &apitask.Task{
-		Arn: "test-task-arn",
+		Arn: taskArn,
+		Family: taskFamily,
+		Version: taskFamilyVersion,
 		Containers: []*apicontainer.Container{
 			{
 				Name: "test-batch-container",
@@ -2996,7 +3005,7 @@ func TestPapyrusLogDriverChangeDefaultFluentdNoOverride(t *testing.T) {
 
 	// Expected log config ---
 	logDriverFluentdConfig := map[string]string{
-    logDriverTag: "docker.batch." + component,
+    logDriverTag: "docker.batch." + component + "." + taskFamily + "." + taskFamilyVersion + "." + containerName + "." + taskID,
     logDriverFluentdAddress: defaultFluentdAddress,
 	}
 
@@ -3018,7 +3027,10 @@ func TestPapyrusLogDriverChangeDefaultFluentdNoOverride(t *testing.T) {
 				assert.Equal(t, logDriverTypeFluentd, hostConfig.LogConfig.Type,
 					"Log driver type switch to fluentd since Papyrus environment variables are set.")
 				assert.True(t, reflect.DeepEqual(logDriverFluentdConfig, hostConfig.LogConfig.Config),
-					"Log config should change to Fluentd default values since Papyrus environment variables are set (but an override for the Fluentd address is not set).")
+					"Log config should change to Fluentd default values since Papyrus environment variables are set " + 
+					"(but an override for the Fluentd address is not set)." + 
+					fmt.Sprintf("Expected: %v, Actual: %v", logDriverTypeFluentd, hostConfig.LogConfig.Config),
+				)
 		})
 
 	ret := taskEngine.(*DockerTaskEngine).createContainer(testTask, testTask.Containers[0])
@@ -3044,9 +3056,11 @@ func TestPapyrusNoLogDriverChangeNoDefaultAddressNoOverride(t *testing.T) {
 	require.NoError(t, err)
 
 	component := "helios"
+	taskFamily := "helios-jd-123"
 
 	testTask := &apitask.Task{
 		Arn: "test-task-arn",
+		Family: taskFamily,
 		Containers: []*apicontainer.Container{
 			{
 				Name: "test-batch-container",
@@ -3083,7 +3097,9 @@ func TestPapyrusNoLogDriverChangeNoDefaultAddressNoOverride(t *testing.T) {
 				assert.Equal(t, logDriverTypeAWS, hostConfig.LogConfig.Type,
 					"Log driver type should not change since no Fluentd address available via defaults or override variable.")
 				assert.True(t, reflect.DeepEqual(logDriverAWSConfig, hostConfig.LogConfig.Config),
-					"Log config should not change since no Fluentd address available via defaults or override variable.")
+					"Log config should not change since no Fluentd address available via defaults or override variable." +
+					fmt.Sprintf("Expected: %v, Actual: %v", logDriverAWSConfig, hostConfig.LogConfig.Config),
+				)
 		})
 
 	ret := taskEngine.(*DockerTaskEngine).createContainer(testTask, testTask.Containers[0])
@@ -3111,9 +3127,16 @@ func TestPapyrusLogDriverChangeNoDefaultAddressHasOverride(t *testing.T) {
 	require.NoError(t, err)
 
 	component := "helios"
+	containerName := "test-batch-container"
+	taskFamily := "helios-jd-123"
+	taskFamilyVersion := "2"
+	taskID := "09393kdkasdf93kaf"
+	taskArn := "arn:aws:ecs:us-east-1:3838747299388:task/TestCE_Batch_47aeea0c-adf7-3a5b-81c8-20399asdfk/" + taskID
 
 	testTask := &apitask.Task{
-		Arn: "test-task-arn",
+		Arn: taskArn,
+		Family: taskFamily,
+		Version: taskFamilyVersion,
 		Containers: []*apicontainer.Container{
 			{
 				Name: "test-batch-container",
@@ -3134,7 +3157,7 @@ func TestPapyrusLogDriverChangeNoDefaultAddressHasOverride(t *testing.T) {
 
 	// Expected log config ---
 	logDriverFluentdConfig := map[string]string{
-    logDriverTag: "docker.batch." + component,
+    logDriverTag: "docker.batch." + component + "." + taskFamily + "." + taskFamilyVersion + "." + containerName + "." + taskID,
     logDriverFluentdAddress: taskFluentdAddress,
 	}
 
@@ -3156,7 +3179,10 @@ func TestPapyrusLogDriverChangeNoDefaultAddressHasOverride(t *testing.T) {
 				assert.Equal(t, logDriverTypeFluentd, hostConfig.LogConfig.Type,
 					"Log driver type switch to fluentd since Papyrus environment variables and Fluentd address are set.")
 				assert.True(t, reflect.DeepEqual(logDriverFluentdConfig, hostConfig.LogConfig.Config),
-					"Log config should change to Fluentd task values since Papyrus environment variables and Fluentd address are set (but an override for the Fluentd address is not set).")
+					"Log config should change to Fluentd task values since Papyrus environment variables and Fluentd address are set " + 
+					"(but an override for the Fluentd address is not set)." + 
+					fmt.Sprintf("Expected: %v, Actual: %v", logDriverFluentdConfig, hostConfig.LogConfig.Config),
+				)
 		})
 
 	ret := taskEngine.(*DockerTaskEngine).createContainer(testTask, testTask.Containers[0])
@@ -3189,12 +3215,19 @@ func TestPapyrusLogDriverChangeHasDefaultAddressHasOverride(t *testing.T) {
 	require.NoError(t, err)
 
 	component := "helios"
+	containerName := "test-batch-container"
+	taskFamily := "helios-jd-123"
+	taskFamilyVersion := "2"
+	taskID := "09393kdkasdf93kaf"
+	taskArn := "arn:aws:ecs:us-east-1:3838747299388:task/TestCE_Batch_47aeea0c-adf7-3a5b-81c8-20399asdfk/" + taskID
 
 	testTask := &apitask.Task{
-		Arn: "test-task-arn",
+		Arn: taskArn,
+		Family: taskFamily,
+		Version: taskFamilyVersion,
 		Containers: []*apicontainer.Container{
 			{
-				Name: "test-batch-container",
+				Name: containerName,
 				DockerConfig: apicontainer.DockerConfig{
 					HostConfig: func() *string {
             s := string(rawHostConfig)
@@ -3212,7 +3245,7 @@ func TestPapyrusLogDriverChangeHasDefaultAddressHasOverride(t *testing.T) {
 
 	// Expected log config ---
 	logDriverFluentdConfig := map[string]string{
-    logDriverTag: "docker.batch." + component,
+    logDriverTag: "docker.batch." + component + "." + taskFamily + "." + taskFamilyVersion + "." + containerName + "." + taskID,
     logDriverFluentdAddress: taskFluentdAddress,
 	}
 
@@ -3234,7 +3267,10 @@ func TestPapyrusLogDriverChangeHasDefaultAddressHasOverride(t *testing.T) {
 				assert.Equal(t, logDriverTypeFluentd, hostConfig.LogConfig.Type,
 					"Log driver type switch to fluentd since Papyrus environment variables are set.")
 				assert.True(t, reflect.DeepEqual(logDriverFluentdConfig, hostConfig.LogConfig.Config),
-					"Log config should change to Fluentd values with Fluentd address override since Papyrus environment variables are set (but an override for the Fluentd address is not set).")
+					"Log config should change to Fluentd values with Fluentd address override since Papyrus environment variables are set " + 
+					"(but an override for the Fluentd address is not set)." + 
+					fmt.Sprintf("Expected: %v, Actual: %v", logDriverFluentdConfig, hostConfig.LogConfig.Config),
+				)
 		})
 
 	ret := taskEngine.(*DockerTaskEngine).createContainer(testTask, testTask.Containers[0])
