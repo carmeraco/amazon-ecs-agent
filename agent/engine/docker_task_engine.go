@@ -932,11 +932,10 @@ func (engine *DockerTaskEngine) createContainer(task *apitask.Task, container *a
 	// LOG_DRIVER and COMPONENT are set,  and if so send logs to either ECS_DEFAULT_FLUENTD_ADDRESS
 	// (set on the agent) or the override FLUENTD_ADDRESS (set on the task).
 	if hostConfig.LogConfig.Type == logDriverTypeAWS {
-		seelog.Debugf("Task engine [%s]: Detected task family %s as AWS Batch task", task.Arn, task.Family)
-
 		logConfig := hostConfig.LogConfig.Config
 
 		if logPath, ok := logConfig[logDriverAWSLogGroup]; ok && logPath == logDriverBatchLogPath {
+			seelog.Debugf("Task engine [%s]: Detected task family %s as AWS Batch task", task.Arn, task.Family)
 			// Check for Papyrus task environment variables
 			environment := container.Environment
 

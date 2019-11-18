@@ -43,7 +43,7 @@ jobs:
       - aws-ecr/push-image:
           account-url: ECR_REGISTRY
           repo: papyrus/amazon-ecs-agent
-          tag: ${VERSION}
+          tag: 'latest,${VERSION}'
 
 workflows:
   build-and-push:
@@ -51,7 +51,7 @@ workflows:
       - test:
           filters:
             tags:
-              only: /^(\d+\.)+(\d|\w)+$/
+              only: /^\d+\.\d+\.\d-*\w*\+*\d*$/
       - build:
           requires:
             - test
@@ -60,4 +60,4 @@ workflows:
               ignore:
                 /.*/
             tags:
-              only: /^(\d+\.)+(\d|\w)+$/
+              only: /^\d+\.\d+\.\d-*\w*\+*\d*$/
