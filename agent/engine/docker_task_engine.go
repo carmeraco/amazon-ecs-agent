@@ -83,9 +83,9 @@ const (
 	logDriverTypeAWS        = "awslogs"
 	logDriverAWSLogGroup    = "awslogs-group"
 	logDriverBatchLogPath   = "/aws/batch/job"
-	logDriverEnvKey         = "LOG_DRIVER"
-	componentEnvKey         = "COMPONENT"
-	fluentdAddressEnvKey    = "FLUENTD_ADDRESS"
+	logDriverEnvKey         = "__LOG_DRIVER"
+	componentEnvKey         = "__PAPYRUS_COMPONENT_NAME"
+	fluentdAddressEnvKey    = "__FLUENTD_ADDRESS"
 	logDriverTag            = "tag"
 	logDriverFluentdAddress = "fluentd-address"
 	dataLogDriverPath       = "/data/firelens/"
@@ -929,8 +929,8 @@ func (engine *DockerTaskEngine) createContainer(task *apitask.Task, container *a
 
 	// HACK: Send logs for AWS Batch jobs to Papyrus. The logging driver is not configurable via the JobDefinition.
 	// Instead, for AWS Batch jobs we will detect via the ECS agent whether the environment variables
-	// LOG_DRIVER and COMPONENT are set,  and if so send logs to either ECS_DEFAULT_FLUENTD_ADDRESS
-	// (set on the agent) or the override FLUENTD_ADDRESS (set on the task).
+	// __LOG_DRIVER and __PAPYRUS_COMPONENT_NAME are set,  and if so send logs to either ECS_DEFAULT_FLUENTD_ADDRESS
+	// (set on the agent) or the override __FLUENTD_ADDRESS (set on the task).
 	if hostConfig.LogConfig.Type == logDriverTypeAWS {
 		logConfig := hostConfig.LogConfig.Config
 

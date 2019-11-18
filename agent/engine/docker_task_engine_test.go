@@ -3022,8 +3022,8 @@ func TestPapyrusLogDriverChangeDefaultFluentdNoOverride(t *testing.T) {
 			hostConfig *dockercontainer.HostConfig,
 			name string,
 			timeout time.Duration) {
-				assert.Contains(t, config.Env, "LOG_DRIVER=fluentd")
-				assert.Contains(t, config.Env, "COMPONENT=helios")
+				assert.Contains(t, config.Env, "__LOG_DRIVER=fluentd")
+				assert.Contains(t, config.Env, "__PAPYRUS_COMPONENT_NAME=helios")
 				assert.Equal(t, logDriverTypeFluentd, hostConfig.LogConfig.Type,
 					"Log driver type switch to fluentd since Papyrus environment variables are set.")
 				assert.True(t, reflect.DeepEqual(logDriverFluentdConfig, hostConfig.LogConfig.Config),
@@ -3091,8 +3091,8 @@ func TestPapyrusNoLogDriverChangeNoDefaultAddressNoOverride(t *testing.T) {
 			hostConfig *dockercontainer.HostConfig,
 			name string,
 			timeout time.Duration) {
-				assert.Contains(t, config.Env, "LOG_DRIVER=fluentd")
-				assert.Contains(t, config.Env, "COMPONENT=helios")
+				assert.Contains(t, config.Env, "__LOG_DRIVER=fluentd")
+				assert.Contains(t, config.Env, "__PAPYRUS_COMPONENT_NAME=helios")
 
 				assert.Equal(t, logDriverTypeAWS, hostConfig.LogConfig.Type,
 					"Log driver type should not change since no Fluentd address available via defaults or override variable.")
@@ -3174,8 +3174,8 @@ func TestPapyrusLogDriverChangeNoDefaultAddressHasOverride(t *testing.T) {
 			hostConfig *dockercontainer.HostConfig,
 			name string,
 			timeout time.Duration) {
-				assert.Contains(t, config.Env, "LOG_DRIVER=fluentd")
-				assert.Contains(t, config.Env, "COMPONENT=helios")
+				assert.Contains(t, config.Env, "__LOG_DRIVER=fluentd")
+				assert.Contains(t, config.Env, "__PAPYRUS_COMPONENT_NAME=helios")
 				assert.Equal(t, logDriverTypeFluentd, hostConfig.LogConfig.Type,
 					"Log driver type switch to fluentd since Papyrus environment variables and Fluentd address are set.")
 				assert.True(t, reflect.DeepEqual(logDriverFluentdConfig, hostConfig.LogConfig.Config),
@@ -3262,8 +3262,8 @@ func TestPapyrusLogDriverChangeHasDefaultAddressHasOverride(t *testing.T) {
 			hostConfig *dockercontainer.HostConfig,
 			name string,
 			timeout time.Duration) {
-				assert.Contains(t, config.Env, "LOG_DRIVER=fluentd")
-				assert.Contains(t, config.Env, "COMPONENT=helios")
+				assert.Contains(t, config.Env, "__LOG_DRIVER=fluentd")
+				assert.Contains(t, config.Env, "__PAPYRUS_COMPONENT_NAME=helios")
 				assert.Equal(t, logDriverTypeFluentd, hostConfig.LogConfig.Type,
 					"Log driver type switch to fluentd since Papyrus environment variables are set.")
 				assert.True(t, reflect.DeepEqual(logDriverFluentdConfig, hostConfig.LogConfig.Config),

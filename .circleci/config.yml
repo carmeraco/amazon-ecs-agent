@@ -1,7 +1,7 @@
 version: '2.1'
 
 orbs:
-  aws-ecr: circleci/aws-ecr@4.0.1
+  aws-ecr: circleci/aws-ecr@6.5.0
 
 machine: &machine
   # Run docker-compose on the VM
@@ -26,7 +26,11 @@ jobs:
           name: Set shared environment variables
           command: |
             SHORT_SHA1=${CIRCLE_SHA1:0:7}
-            echo "export VERSION=${CIRCLE_TAG:-$SHORT_SHA1}" >> $BASH_ENV
+            VERSION=${CIRCLE_TAG:-$SHORT_SHA1}
+
+            # Make semantic versioning docker-tag compliant
+            # See https://github.com/moby/moby/issues/16304
+            echo "export VERSION=${VERSION/+/_}" >> $BASH_ENV
       - run:
           name: Set dev environment variables
           command: |
@@ -39,11 +43,12 @@ jobs:
           command: |
             make docker
             docker tag amazon/amazon-ecs-agent:${VERSION} ${ECR_REGISTRY}/papyrus/amazon-ecs-agent:${VERSION}
+            docker tag amazon/amazon-ecs-agent:${VERSION} ${ECR_REGISTRY}/papyrus/amazon-ecs-agent:latest
       - aws-ecr/ecr-login
       - aws-ecr/push-image:
           account-url: ECR_REGISTRY
           repo: papyrus/amazon-ecs-agent
-          tag: 'latest,${VERSION}'
+          tag: "latest,${VERSION}"
 
 workflows:
   build-and-push:
