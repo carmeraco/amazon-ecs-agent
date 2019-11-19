@@ -93,6 +93,7 @@ func TestEnvironmentConfig(t *testing.T) {
 	defer setTestEnv("ECS_RESERVED_MEMORY", "20")()
 	defer setTestEnv("ECS_CONTAINER_STOP_TIMEOUT", "60s")()
 	defer setTestEnv("ECS_CONTAINER_START_TIMEOUT", "5m")()
+	defer setTestEnv("ECS_DEFAULT_FLUENTD_ADDRESS", "fluentd.papyrus.us-east-1.local")()
 	defer setTestEnv("ECS_IMAGE_PULL_INACTIVITY_TIMEOUT", "10m")()
 	defer setTestEnv("ECS_AVAILABLE_LOGGING_DRIVERS", "[\""+string(dockerclient.SyslogDriver)+"\"]")()
 	defer setTestEnv("ECS_SELINUX_CAPABLE", "true")()
@@ -127,6 +128,7 @@ func TestEnvironmentConfig(t *testing.T) {
 
 	conf, err := environmentConfig()
 	assert.NoError(t, err)
+	assert.Equal(t, "fluentd.papyrus.us-east-1.local", conf.FluentdAddress)
 	assert.Equal(t, "myCluster", conf.Cluster)
 	assert.Equal(t, 2, len(conf.ReservedPortsUDP))
 	assert.Contains(t, conf.ReservedPortsUDP, uint16(42))

@@ -1,0 +1,18 @@
+# Using version 2 for 'extends' DRY. See https://github.com/moby/moby/issues/31101
+version: '2.4'
+
+services:
+
+  test:
+    build:
+      context: ../../
+      dockerfile: scripts/dockerfiles/Dockerfile.test
+    image: amazon-ecs-agent:test
+    privileged: true
+    volumes:
+      - ../../:/go/src/github.com/aws/amazon-ecs-agent
+    environment:
+      ECS_LOGLEVEL: debug
+  test-papyrus:
+    extends: test
+    command: go test -tags unit -run '^Test(Papyrus|EnvironmentConfig)' ./agent/engine/ ./agent/config/ -v -count 1

@@ -1,0 +1,68 @@
+version: '2.1'
+
+orbs:
+  aws-ecr: circleci/aws-ecr@6.5.0
+
+machine: &machine
+  # Run docker-compose on the VM
+  machine:
+    image: circleci/classic:201808-01
+    docker_layer_caching: true
+  working_directory: /tmp/workspace/project
+
+jobs:
+  test:
+    <<: *machine
+    steps:
+      - checkout
+      - run:
+          name: Run unit tests
+          command: cd scripts/dockerfiles && docker-compose up --build --exit-code-from test-papyrus test-papyrus
+  build:
+    <<: *machine
+    steps:
+      - checkout
+      - run:
+          name: Set shared environment variables
+          command: |
+            SHORT_SHA1=${CIRCLE_SHA1:0:7}
+            VERSION=${CIRCLE_TAG:-$SHORT_SHA1}
+
+            # Make semantic versioning docker-tag compliant
+            # See https://github.com/moby/moby/issues/16304
+            echo "export VERSION=${VERSION/+/_}" >> $BASH_ENV
+      - run:
+          name: Set dev environment variables
+          command: |
+            echo "export AWS_REGION=${AWS_REGION_DEV}" >> $BASH_ENV
+            echo "export AWS_ACCESS_KEY_ID=${AWS_ACCESS_KEY_ID_DEV}" >> "$BASH_ENV"
+            echo "export AWS_SECRET_ACCESS_KEY=${AWS_SECRET_ACCESS_KEY_DEV}" >> "$BASH_ENV"
+            echo "export ECR_REGISTRY=${AWS_ACCOUNT_ID_DEV}.dkr.ecr.${AWS_REGION_DEV}.amazonaws.com" >> $BASH_ENV
+      - run:
+          name: Build & push Amazon ECS agent docker image
+          command: |
+            make docker
+            docker tag amazon/amazon-ecs-agent:${VERSION} ${ECR_REGISTRY}/papyrus/amazon-ecs-agent:${VERSION}
+            docker tag amazon/amazon-ecs-agent:${VERSION} ${ECR_REGISTRY}/papyrus/amazon-ecs-agent:latest
+      - aws-ecr/ecr-login
+      - aws-ecr/push-image:
+          account-url: ECR_REGISTRY
+          repo: papyrus/amazon-ecs-agent
+          tag: "latest,${VERSION}"
+
+workflows:
+  build-and-push:
+    jobs:
+      - test:
+          filters:
+            tags:
+              only: /^\d+\.\d+\.\d-*\w*\+*\d*$/
+      - build:
+          requires:
+            - test
+          filters:
+            branches:
+              ignore:
+                /.*/
+            tags:
+              only: /^\d+\.\d+\.\d-*\w*\+*\d*$/
