@@ -1,6 +1,10 @@
 # Changelog
+
+## 1.33.0-papyrus+2
+* Enhancement - Add metadata from [Batch environment variables](https://docs.aws.amazon.com/batch/latest/userguide/job_env_vars.html).
+
 ## 1.33.0-papyrus+1
-* Enhancement - Add support for sending AWS Batch logs to Papyrus. Detect via the ECS agent whether the environment variables LOG_DRIVER and COMPONENT are set, and if so send logs to either ECS_DEFAULT_FLUENTD_ADDRESS (set on the agent) or the override FLUENTD_ADDRESS (set on the task).
+* Enhancement - Add support for sending AWS Batch logs to Papyrus. Detect via the ECS agent whether the environment variables \_\_LOG_DRIVER and \_\_PAPYRUS_COMPONENT_NAME are set, and if so send logs to either ECS_DEFAULT_FLUENTD_ADDRESS (set on the agent) or the override \_\_FLUENTD_ADDRESS (set on the task).
 
 ## 1.33.0
 * Feature - Agent performs a sync between task state on the instance and on the backend everytime Agent establishes a connection with the backend. This ensures that task state is as expected on the instance after the instance reconnects with the instance after a disconnection [#2191](https://github.com/aws/amazon-ecs-agent/pull/2191)
