@@ -2978,14 +2978,12 @@ func TestPapyrusLogDriverChangeDefaultFluentdNoOverride(t *testing.T) {
 	component := "helios"
 	containerName := "test-batch-container"
 	taskFamily := "helios-jd-123"
-	taskFamilyVersion := "2"
 	taskID := "09393kdkasdf93kaf"
 	taskArn := "arn:aws:ecs:us-east-1:3838747299388:task/TestCE_Batch_47aeea0c-adf7-3a5b-81c8-20399asdfk/" + taskID
 
 	testTask := &apitask.Task{
 		Arn: taskArn,
 		Family: taskFamily,
-		Version: taskFamilyVersion,
 		Containers: []*apicontainer.Container{
 			{
 				Name: "test-batch-container",
@@ -2998,6 +2996,15 @@ func TestPapyrusLogDriverChangeDefaultFluentdNoOverride(t *testing.T) {
 				Environment: map[string]string{
 					logDriverEnvKey: logDriverTypeFluentd,
 					componentEnvKey: component,
+					batchCEEnvKey: "AsilCE",
+					batchJobArrayIndexEnvKey: "",
+					batchJobAttemptEnvKey: "",
+					batchJobIdEnvKey: "29920asdf93",
+					batchJobMainNodeIndexEnvKey: "0",
+					batchJobMainNodeAddressEnvKey: "",
+					batchJobNodeIndexEnvKey: "0",
+					batchJobNumNodesEnvKey: "1",
+					batchJobQueueNameEnvKey: "AsilJQ",
 				},
 			},
 		},
@@ -3005,7 +3012,23 @@ func TestPapyrusLogDriverChangeDefaultFluentdNoOverride(t *testing.T) {
 
 	// Expected log config ---
 	logDriverFluentdConfig := map[string]string{
-    logDriverTag: "docker.batch." + component + "." + taskFamily + "." + taskFamilyVersion + "." + containerName + "." + taskID,
+    logDriverTag: strings.Join([]string{
+			/* [ 0] */ "docker",
+			/* [ 1] */ "batch",
+			/* [ 2] */ component,
+			/* [ 3] */ taskFamily,
+			/* [ 4] */ containerName,
+			/* [ 5] */ taskID,
+			/* [ 6] */ "AsilCE",
+			/* [ 7] */ "",
+			/* [ 8] */ "",
+			/* [ 9] */ "29920asdf93",
+			/* [10] */ "0",
+			/* [11] */ "",
+			/* [12] */ "0",
+			/* [13] */ "1",
+			/* [14] */ "AsilJQ",
+		}, "."),
     logDriverFluentdAddress: defaultFluentdAddress,
 	}
 
@@ -3073,6 +3096,15 @@ func TestPapyrusNoLogDriverChangeNoDefaultAddressNoOverride(t *testing.T) {
 				Environment: map[string]string{
 					logDriverEnvKey: logDriverTypeFluentd,
 					componentEnvKey: component,
+					batchCEEnvKey: "AsilCE",
+					batchJobArrayIndexEnvKey: "",
+					batchJobAttemptEnvKey: "",
+					batchJobIdEnvKey: "29920asdf93",
+					batchJobMainNodeIndexEnvKey: "0",
+					batchJobMainNodeAddressEnvKey: "",
+					batchJobNodeIndexEnvKey: "0",
+					batchJobNumNodesEnvKey: "1",
+					batchJobQueueNameEnvKey: "AsilJQ",
 				},
 			},
 		},
@@ -3129,14 +3161,12 @@ func TestPapyrusLogDriverChangeNoDefaultAddressHasOverride(t *testing.T) {
 	component := "helios"
 	containerName := "test-batch-container"
 	taskFamily := "helios-jd-123"
-	taskFamilyVersion := "2"
 	taskID := "09393kdkasdf93kaf"
 	taskArn := "arn:aws:ecs:us-east-1:3838747299388:task/TestCE_Batch_47aeea0c-adf7-3a5b-81c8-20399asdfk/" + taskID
 
 	testTask := &apitask.Task{
 		Arn: taskArn,
 		Family: taskFamily,
-		Version: taskFamilyVersion,
 		Containers: []*apicontainer.Container{
 			{
 				Name: "test-batch-container",
@@ -3150,6 +3180,15 @@ func TestPapyrusLogDriverChangeNoDefaultAddressHasOverride(t *testing.T) {
 					logDriverEnvKey: logDriverTypeFluentd,
 					componentEnvKey: component,
 					fluentdAddressEnvKey: taskFluentdAddress,
+					batchCEEnvKey: "AsilCE",
+					batchJobArrayIndexEnvKey: "",
+					batchJobAttemptEnvKey: "",
+					batchJobIdEnvKey: "29920asdf93",
+					batchJobMainNodeIndexEnvKey: "0",
+					batchJobMainNodeAddressEnvKey: "",
+					batchJobNodeIndexEnvKey: "0",
+					batchJobNumNodesEnvKey: "1",
+					batchJobQueueNameEnvKey: "AsilJQ",
 				},
 			},
 		},
@@ -3157,7 +3196,23 @@ func TestPapyrusLogDriverChangeNoDefaultAddressHasOverride(t *testing.T) {
 
 	// Expected log config ---
 	logDriverFluentdConfig := map[string]string{
-    logDriverTag: "docker.batch." + component + "." + taskFamily + "." + taskFamilyVersion + "." + containerName + "." + taskID,
+    logDriverTag: strings.Join([]string{
+			/* [ 0] */ "docker",
+			/* [ 1] */ "batch",
+			/* [ 2] */ component,
+			/* [ 3] */ taskFamily,
+			/* [ 4] */ containerName,
+			/* [ 5] */ taskID,
+			/* [ 6] */ "AsilCE",
+			/* [ 7] */ "",
+			/* [ 8] */ "",
+			/* [ 9] */ "29920asdf93",
+			/* [10] */ "0",
+			/* [11] */ "",
+			/* [12] */ "0",
+			/* [13] */ "1",
+			/* [14] */ "AsilJQ",
+		}, "."),
     logDriverFluentdAddress: taskFluentdAddress,
 	}
 
@@ -3217,14 +3272,12 @@ func TestPapyrusLogDriverChangeHasDefaultAddressHasOverride(t *testing.T) {
 	component := "helios"
 	containerName := "test-batch-container"
 	taskFamily := "helios-jd-123"
-	taskFamilyVersion := "2"
 	taskID := "09393kdkasdf93kaf"
 	taskArn := "arn:aws:ecs:us-east-1:3838747299388:task/TestCE_Batch_47aeea0c-adf7-3a5b-81c8-20399asdfk/" + taskID
 
 	testTask := &apitask.Task{
 		Arn: taskArn,
 		Family: taskFamily,
-		Version: taskFamilyVersion,
 		Containers: []*apicontainer.Container{
 			{
 				Name: containerName,
@@ -3238,6 +3291,15 @@ func TestPapyrusLogDriverChangeHasDefaultAddressHasOverride(t *testing.T) {
 					logDriverEnvKey: logDriverTypeFluentd,
 					componentEnvKey: component,
 					fluentdAddressEnvKey: taskFluentdAddress,
+					batchCEEnvKey: "AsilCE",
+					batchJobArrayIndexEnvKey: "",
+					batchJobAttemptEnvKey: "",
+					batchJobIdEnvKey: "29920asdf93",
+					batchJobMainNodeIndexEnvKey: "0",
+					batchJobMainNodeAddressEnvKey: "",
+					batchJobNodeIndexEnvKey: "0",
+					batchJobNumNodesEnvKey: "1",
+					batchJobQueueNameEnvKey: "AsilJQ",
 				},
 			},
 		},
@@ -3245,7 +3307,23 @@ func TestPapyrusLogDriverChangeHasDefaultAddressHasOverride(t *testing.T) {
 
 	// Expected log config ---
 	logDriverFluentdConfig := map[string]string{
-    logDriverTag: "docker.batch." + component + "." + taskFamily + "." + taskFamilyVersion + "." + containerName + "." + taskID,
+    logDriverTag: strings.Join([]string{
+			/* [ 0] */ "docker",
+			/* [ 1] */ "batch",
+			/* [ 2] */ component,
+			/* [ 3] */ taskFamily,
+			/* [ 4] */ containerName,
+			/* [ 5] */ taskID,
+			/* [ 6] */ "AsilCE",
+			/* [ 7] */ "",
+			/* [ 8] */ "",
+			/* [ 9] */ "29920asdf93",
+			/* [10] */ "0",
+			/* [11] */ "",
+			/* [12] */ "0",
+			/* [13] */ "1",
+			/* [14] */ "AsilJQ",
+		}, "."),
     logDriverFluentdAddress: taskFluentdAddress,
 	}
 
