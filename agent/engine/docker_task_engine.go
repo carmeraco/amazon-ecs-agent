@@ -86,6 +86,17 @@ const (
 	logDriverEnvKey         = "__LOG_DRIVER"
 	componentEnvKey         = "__PAPYRUS_COMPONENT_NAME"
 	fluentdAddressEnvKey    = "__FLUENTD_ADDRESS"
+
+	batchCEEnvKey                 = "AWS_BATCH_CE_NAME"
+	batchJobArrayIndexEnvKey      = "AWS_BATCH_JOB_ARRAY_INDEX"
+	batchJobAttemptEnvKey         = "AWS_BATCH_JOB_ATTEMPT"
+	batchJobIdEnvKey              = "AWS_BATCH_JOB_ID"
+	batchJobMainNodeIndexEnvKey   = "AWS_BATCH_JOB_MAIN_NODE_INDEX"
+	batchJobMainNodeAddressEnvKey = "AWS_BATCH_JOB_MAIN_NODE_PRIVATE_IPV4_ADDRESS"
+	batchJobNodeIndexEnvKey       = "AWS_BATCH_JOB_NODE_INDEX"
+	batchJobNumNodesEnvKey        = "AWS_BATCH_JOB_NUM_NODES"
+	batchJobQueueNameEnvKey       = "AWS_BATCH_JQ_NAME"
+
 	logDriverTag            = "tag"
 	logDriverFluentdAddress = "fluentd-address"
 	dataLogDriverPath       = "/data/firelens/"
@@ -948,7 +959,24 @@ func (engine *DockerTaskEngine) createContainer(task *apitask.Task, container *a
 					taskID := fields[len(fields)-1]
 					// Metadata for Fluentd. These will be parsed as record fields for Papyrus, and also used to 
 					// reconstruct the CloudWatch log stream name.
-					tag := fmt.Sprintf("docker.batch.%s.%s.%s.%s.%s", component, task.Family, task.Version, container.Name, taskID)
+					tag := strings.Join([]string{
+						// Enumerated below for comparison to Fluentd tag_parts
+						/* [ 0] */ "docker",
+						/* [ 1] */ "batch",
+						/* [ 2] */ component,
+						/* [ 3] */ task.Family,
+						/* [ 4] */ container.Name,
+						/* [ 5] */ taskID,
+						/* [ 6] */ environment[batchCEEnvKey],                 // AWS_BATCH_CE_NAME
+						/* [ 7] */ environment[batchJobArrayIndexEnvKey],      // AWS_BATCH_JOB_ARRAY_INDEX
+						/* [ 8] */ environment[batchJobAttemptEnvKey],         // AWS_BATCH_JOB_ATTEMPT
+						/* [ 9] */ environment[batchJobIdEnvKey],              // AWS_BATCH_JOB_ID
+						/* [10] */ environment[batchJobMainNodeIndexEnvKey],   // AWS_BATCH_JOB_MAIN_NODE_INDEX
+						/* [11] */ environment[batchJobMainNodeAddressEnvKey], // AWS_BATCH_JOB_MAIN_NODE_PRIVATE_IPV4_ADDRESS
+						/* [12] */ environment[batchJobNodeIndexEnvKey],       // AWS_BATCH_JOB_NODE_INDEX
+						/* [13] */ environment[batchJobNumNodesEnvKey],        // AWS_BATCH_JOB_NUM_NODES
+						/* [14] */ environment[batchJobQueueNameEnvKey],       // AWS_BATCH_JQ_NAME
+					}, ".")
 
 					// LOG_DRIVER and COMPONENT are set.
 					// Check for either FLUENTD_ADDRESS or populated ECS_DEFAULT_FLUENTD_ADDRESS.
@@ -969,8 +997,8 @@ func (engine *DockerTaskEngine) createContainer(task *apitask.Task, container *a
 						    logDriverFluentdAddress: defaultFluentdAddress,
 							}
 					} else {
-						seelog.Warnf("Task engine [%s]: For task family %s, LOG_DRIVER and COMPONENT environment variables are set, " +
-							"but no address was found in FLUENTD_ADDRESS or ECS_DEFAULT_FLUENTD_ADDRESS. Not sending logs to Fluentd.", task.Arn, task.Family)
+						seelog.Warnf("Task engine [%s]: For task family %s, __LOG_DRIVER and __PAPYRUS_COMPONENT_NAME environment variables are set, " +
+							"but no address was found in __FLUENTD_ADDRESS or ECS_DEFAULT_FLUENTD_ADDRESS. Not sending logs to Fluentd.", task.Arn, task.Family)
 					}
 				}
 			}
