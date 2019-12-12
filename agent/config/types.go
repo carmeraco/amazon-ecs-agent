@@ -309,4 +309,7 @@ type Config struct {
 	// FluentdAddress is the default address to which to send Batch logs (overriding the setting for awslogs), if
 	// the environment variables LOG_DRIVER=fluentd and COMPONENT=... are set on the task definition.
 	FluentdAddress string
+	// GMSACapable is the config option to indicate if gMSA is supported.
+	// It should be enabled by default only if the container instance is part of a valid active directory domain.
+	GMSACapable bool
 }

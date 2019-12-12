@@ -552,6 +552,7 @@ func environmentConfig() (Config, error) {
 		CgroupCPUPeriod:                     parseCgroupCPUPeriod(),
 		SpotInstanceDrainingEnabled:         utils.ParseBool(os.Getenv("ECS_ENABLE_SPOT_INSTANCE_DRAINING"), false),
 		FluentdAddress:                      os.Getenv("ECS_DEFAULT_FLUENTD_ADDRESS"),
+		GMSACapable:                         parseGMSACapability(),
 	}, err
 }
 
