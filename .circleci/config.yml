@@ -10,6 +10,41 @@ machine: &machine
     docker_layer_caching: true
   working_directory: /tmp/workspace/project
 
+commands:
+  tag-n-push:
+    description: Retag and push an image to AWS ECR by account and region.
+    parameters:
+      account:
+        type: string
+      region:
+        type: string
+      aws_access_key_id:
+        type: string
+      aws_secret_access_key:
+        type: string
+    steps:
+      - run:
+          name: >
+            Retag Amazon ECS agent docker image: << parameters.account >>, << parameters.region >>
+          command: |
+            echo "export AWS_REGION=<< parameters.region >>" >> $BASH_ENV
+            echo "export AWS_ACCESS_KEY_ID=<< parameters.aws_access_key_id >>" >> "$BASH_ENV"
+            echo "export AWS_SECRET_ACCESS_KEY=<< parameters.aws_secret_access_key >>" >> "$BASH_ENV"
+
+            source "$BASH_ENV"
+
+            aws_account_id=$(aws sts get-caller-identity --query 'Account' --output text)
+            ecr_registry=${aws_account_id}.dkr.ecr.${AWS_REGION}.amazonaws.com
+            echo "export ECR_REGISTRY=${ecr_registry}" >> $BASH_ENV
+
+            docker tag amazon/amazon-ecs-agent:${VERSION} ${ecr_registry}/papyrus/amazon-ecs-agent:${VERSION}
+            docker tag amazon/amazon-ecs-agent:${VERSION} ${ecr_registry}/papyrus/amazon-ecs-agent:latest
+      - aws-ecr/ecr-login
+      - aws-ecr/push-image:
+          account-url: ECR_REGISTRY
+          repo: papyrus/amazon-ecs-agent
+          tag: "latest,${VERSION}"
+
 jobs:
   test:
     <<: *machine
@@ -32,23 +67,38 @@ jobs:
             # See https://github.com/moby/moby/issues/16304
             echo "export VERSION=${VERSION/+/_}" >> $BASH_ENV
       - run:
-          name: Set dev environment variables
-          command: |
-            echo "export AWS_REGION=${AWS_REGION_DEV}" >> $BASH_ENV
-            echo "export AWS_ACCESS_KEY_ID=${AWS_ACCESS_KEY_ID_DEV}" >> "$BASH_ENV"
-            echo "export AWS_SECRET_ACCESS_KEY=${AWS_SECRET_ACCESS_KEY_DEV}" >> "$BASH_ENV"
-            echo "export ECR_REGISTRY=${AWS_ACCOUNT_ID_DEV}.dkr.ecr.${AWS_REGION_DEV}.amazonaws.com" >> $BASH_ENV
-      - run:
-          name: Build & push Amazon ECS agent docker image
-          command: |
-            make docker
-            docker tag amazon/amazon-ecs-agent:${VERSION} ${ECR_REGISTRY}/papyrus/amazon-ecs-agent:${VERSION}
-            docker tag amazon/amazon-ecs-agent:${VERSION} ${ECR_REGISTRY}/papyrus/amazon-ecs-agent:latest
-      - aws-ecr/ecr-login
-      - aws-ecr/push-image:
-          account-url: ECR_REGISTRY
-          repo: papyrus/amazon-ecs-agent
-          tag: "latest,${VERSION}"
+          name: Build Amazon ECS agent docker image
+          command: make docker
+      - tag-n-push:
+          account: dev
+          region: us-east-1
+          aws_access_key_id: ${AWS_ACCESS_KEY_ID_DEV}
+          aws_secret_access_key: ${AWS_SECRET_ACCESS_KEY_DEV}
+      - tag-n-push:
+          account: dev
+          region: ap-northeast-2
+          aws_access_key_id: ${AWS_ACCESS_KEY_ID_DEV}
+          aws_secret_access_key: ${AWS_SECRET_ACCESS_KEY_DEV}
+      - tag-n-push:
+          account: staging
+          region: us-east-1
+          aws_access_key_id: ${AWS_ACCESS_KEY_ID_STG}
+          aws_secret_access_key: ${AWS_SECRET_ACCESS_KEY_STG}
+      - tag-n-push:
+          account: staging
+          region: ap-northeast-2
+          aws_access_key_id: ${AWS_ACCESS_KEY_ID_STG}
+          aws_secret_access_key: ${AWS_SECRET_ACCESS_KEY_STG}
+      - tag-n-push:
+          account: production
+          region: us-east-1
+          aws_access_key_id: ${AWS_ACCESS_KEY_ID_PROD}
+          aws_secret_access_key: ${AWS_SECRET_ACCESS_KEY_PROD}
+      - tag-n-push:
+          account: production
+          region: ap-northeast-2
+          aws_access_key_id: ${AWS_ACCESS_KEY_ID_PROD}
+          aws_secret_access_key: ${AWS_SECRET_ACCESS_KEY_PROD}
 
 workflows:
   build-and-push:
@@ -58,6 +108,7 @@ workflows:
             tags:
               only: /^\d+\.\d+\.\d-*\w*\+*\d*$/
       - build:
+          context: an-all
           requires:
             - test
           filters:

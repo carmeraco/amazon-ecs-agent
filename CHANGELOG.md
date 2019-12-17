@@ -1,5 +1,12 @@
 # Changelog
 
+## 1.34.0-papyrus+1
+* Enhancement - Add automated image push to current AWS accounts and Stravinsky regions.
+
+## 1.34.0
+* Feature - Add Windows gMSA (group Managed Service Account) support on ECS.
+* Bug - Binding metadata directory in Z mode for selinux enabled docker, which enables read access to the metadata files from container processes. [#2273](https://github.com/aws/amazon-ecs-agent/pull/2273)
+
 ## 1.33.0-papyrus+2
 * Enhancement - Add metadata from [Batch environment variables](https://docs.aws.amazon.com/batch/latest/userguide/job_env_vars.html).
 
